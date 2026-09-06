@@ -7,6 +7,10 @@ jobs:
   run-scraper:
     runs-on: ubuntu-latest
 
+    # গিটহাবে ফাইল কমিট এবং পুশ করার জন্য এই পারমিশনটি বাধ্যতামূলক
+    permissions:
+      contents: write 
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -26,8 +30,10 @@ jobs:
         run: |
           python main.py
 
-      - name: Upload status artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: streaming-status
-          path: status.txt
+      - name: Commit and push status.txt to repository root
+        run: |
+          git config --global user.name "GitHub Action Bot"
+          git config --global user.email "action@github.com"
+          git add status.txt
+          git commit -m "Auto-update status.txt with latest stream links" || echo "No changes to commit"
+          git push
