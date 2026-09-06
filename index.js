@@ -2,7 +2,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 
 async function captureStreamingLinks() {
-    console.log("Launching robust stealth browser...");
+    console.log("Starting lightweight stealth capture...");
     
     const browser = await puppeteer.launch({
         headless: "new",
@@ -10,9 +10,8 @@ async function captureStreamingLinks() {
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-infobars',
-            '--window-size=1920,1080',
+            '--window-size=1280,720',
             '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
             '--disable-gpu',
             '--single-process',
             '--disable-blink-features=AutomationControlled'
@@ -20,67 +19,55 @@ async function captureStreamingLinks() {
     });
 
     const page = await browser.newPage();
-
-    await page.setViewport({ width: 1920, height: 1080 });
-    const realUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-    await page.setUserAgent(realUserAgent);
-
-    await page.evaluateOnNewDocument((ua) => {
-        Object.defineProperty(navigator, 'webdriver', { get: () => false });
-        Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
-        Object.defineProperty(navigator, 'userAgent', { get: () => ua });
-        Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-        window.navigator.chrome = { runtime: {} };
-    }, realUserAgent);
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
 
     const capturedLinksMap = new Map();
     const targetPageUrl = 'https://dlive.sx/watch.php?id=450';
 
-    // রিকোয়েস্ট থেকে সম্পূর্ণ কুকিজ এবং সঠিক রেফারার ও টোকেনসহ লিংক ট্র্যাকিং
-    page.on('request', async (request) => {
+    // নেটওয়ার্ক রিকোয়েস্ট মনিটর করা
+    page.on('request', (request) => {
         const url = request.url();
-        if (url.includes('.m3u8') || url.includes('playlist') || url.includes('manifest')) {
+        // ভিডিও স্ট্রিম বা ম্যানিফেস্ট ফাইল ফিল্টার করা
+        if (url.includes('.m3u8') || url.includes('playlist') || url.includes('index.m3u8')) {
             const headers = request.headers();
             const referer = headers['referer'] || targetPageUrl;
 
-            // কুকিজ বা অথেন্টিকেশন প্যারামিটার যুক্ত করার ব্যবস্থা
-            let finalLink = url;
-            
-            if (!capturedLinksMap.has(finalLink)) {
-                console.log(`[Captured Link]: ${finalLink} | Referer: ${referer}`);
-                capturedLinksMap.set(finalLink, referer);
+            if (!capturedLinksMap.has(url)) {
+                console.log(`[Captured]: ${url}`);
+                capturedLinksMap.set(url, referer);
             }
         }
     });
 
     try {
-        console.log("Navigating to target page...");
+        console.log("Navigating to page...");
         await page.goto(targetPageUrl, {
-            waitUntil: 'networkidle2',
-            timeout: 50000
+            waitUntil: 'domcontentloaded',
+            timeout: 30000
         });
 
-        console.log("Waiting for player initialization...");
-        await new Promise(resolve => setTimeout(resolve, 8000));
+        // ভিডিও লোড হওয়ার জন্য সর্বোচ্চ ১৫ সেকেন্ড অপেক্ষা
+        console.log("Waiting for video stream requests...");
+        await new Promise(resolve => setTimeout(resolve, 15000));
 
-        // ভিডিও প্লেয়ারের ওপর রিয়েল ক্লিক সিমুলেট করা যাতে সঠিক স্ট্রিম টোকেন জেনারেট হয়
+        // প্লেয়ারে ক্লিক সিমুলেট করা
         try {
             await page.mouse.click(640, 360);
-            console.log("Clicked on player to force stream loading.");
+            console.log("Clicked on player.");
             await new Promise(resolve => setTimeout(resolve, 8000));
         } catch (e) {
-            console.log("Click simulation skipped.");
+            console.log("Click skipped.");
         }
 
     } catch (error) {
-        console.error("Error during execution:", error);
+        console.error("Navigation error:", error);
     } finally {
-        // সুনিশ্চিতভাবে প্রতিবার status.txt ফাইল তৈরি করা
+        // নিশ্চিতভাবে status.txt ফাইল তৈরি করা
         let fileContent = `--- DLive Link Capture Status ---\n`;
         fileContent += `Target URL: ${targetPageUrl}\n`;
         fileContent += `Capture Time: ${new Date().toLocaleString()}\n`;
         fileContent += `Total Links Found: ${capturedLinksMap.size}\n\n`;
-        fileContent += `--- Streaming Links with Proper Referer ---\n`;
+        fileContent += `--- Streaming Links with Referer ---\n`;
 
         if (capturedLinksMap.size > 0) {
             let index = 1;
@@ -93,14 +80,17 @@ async function captureStreamingLinks() {
         }
 
         fs.writeFileSync('status.txt', fileContent, 'utf-8');
-        console.log("status.txt successfully created and saved.");
+        console.log("status.txt generated successfully.");
 
         await browser.close();
-        console.log("Browser closed cleanly.");
     }
 }
 
+// স্ক্রিপ্ট রান করে নির্দিষ্ট সময়ে ফোর্স এক্সিট নিশ্চিত করা
 captureStreamingLinks().then(() => {
-    // গিটহাব অ্যাকশন্স যেন আটকে না থাকে, সেজন্য ফোর্সফুল এক্সিট নিশ্চিত করা
+    console.log("Process completed successfully.");
     process.exit(0);
+}).catch((err) => {
+    console.error("Fatal error:", err);
+    process.exit(1);
 });
