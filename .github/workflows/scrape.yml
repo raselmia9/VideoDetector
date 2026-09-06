@@ -1,25 +1,31 @@
-name: Capture Streaming Link
+name: DLive Link Scraper
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # ম্যানুয়ালি রান করানোর জন্য
 
 jobs:
-  run-script:
+  run-scraper:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.10'
+          node-version: '20'
 
       - name: Install dependencies
         run: |
-          pip install playwright
-          playwright install chromium
-          playwright install-deps chromium
+          npm install
 
-      - name: Run extraction script
-        run: python your_main.py
+      - name: Run scraping script
+        run: |
+          node index.js
+
+      - name: Upload status artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: streaming-status
+          path: status.txt
