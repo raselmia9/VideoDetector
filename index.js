@@ -36,32 +36,38 @@ async function captureStreamingLinks() {
         };
     });
 
-    const capturedLinks = new Set();
+    // লিংক এবং তার নিজস্ব রেফারার ট্র্যাক করার জন্য Map ব্যবহার করা হলো
+    const capturedLinksMap = new Map();
+    const targetPageUrl = 'https://dlive.sx/watch.php?id=450';
 
     page.on('request', (request) => {
         const url = request.url();
         if (url.includes('.m3u8') || url.includes('playlist') || url.includes('manifest')) {
-            if (!capturedLinks.has(url)) {
-                console.log(`[Captured Link]: ${url}`);
-                capturedLinks.add(url);
+            // রিকোয়েস্ট থেকে আসল রেফারার হেডার বের করা, না থাকলে মূল পেজটি দেওয়া
+            const headers = request.headers();
+            const referer = headers['referer'] || targetPageUrl;
+
+            if (!capturedLinksMap.has(url)) {
+                console.log(`[Captured Link]: ${url} | Referer: ${referer}`);
+                capturedLinksMap.set(url, referer);
             }
         }
     });
 
     try {
         console.log("Navigating to target page securely...");
-        await page.goto('https://dlive.sx/watch.php?id=450', {
-            waitUntil: 'networkidle2',
-            timeout: 60000
+        await page.goto(targetPageUrl, {
+            waitUntil: 'domcontentloaded',
+            timeout: 45000
         });
 
-        console.log("Waiting for page stability and player trigger...");
-        await new Promise(resolve => setTimeout(resolve, 10000));
+        console.log("Waiting for player to trigger requests...");
+        await new Promise(resolve => setTimeout(resolve, 6000));
 
         try {
             await page.mouse.click(500, 500);
             console.log("Simulated human click on page.");
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            await new Promise(resolve => setTimeout(resolve, 4000));
         } catch (e) {
             console.log("Click simulation skipped.");
         }
@@ -69,27 +75,28 @@ async function captureStreamingLinks() {
     } catch (error) {
         console.error("Error during navigation:", error);
     } finally {
-        await browser.close();
-        console.log("Browser closed.");
-
-        let fileContent = `--- DLive Link Capture Status (Anti-Bot Bypass) ---\n`;
-        fileContent += `Target URL: https://dlive.sx/watch.php?id=450\n`;
+        let fileContent = `--- DLive Link Capture Status ---\n`;
+        fileContent += `Target URL: ${targetPageUrl}\n`;
         fileContent += `Capture Time: ${new Date().toLocaleString()}\n`;
-        fileContent += `Total Links Found: ${capturedLinks.size}\n\n`;
-        fileContent += `--- Streaming Links ---\n`;
+        fileContent += `Total Links Found: ${capturedLinksMap.size}\n\n`;
+        fileContent += `--- Streaming Links with Dynamic Referer ---\n`;
 
-        if (capturedLinks.size > 0) {
+        if (capturedLinksMap.size > 0) {
             let index = 1;
-            for (let link of capturedLinks) {
-                fileContent += `${index}. ${link}\n`;
+            for (let [link, referer] of capturedLinksMap.entries()) {
+                // প্রতিটি লিংকের সাথে তার নিজস্ব সঠিক রেফারার যুক্ত হবে
+                fileContent += `${index}. ${link}|Referer=${referer}\n`;
                 index++;
             }
         } else {
-            fileContent += `No streaming links captured. Site might be blocking GitHub Actions IP.\n`;
+            fileContent += `No streaming links captured.\n`;
         }
 
         fs.writeFileSync('status.txt', fileContent, 'utf-8');
         console.log("Successfully saved output to status.txt");
+
+        await browser.close();
+        console.log("Browser closed successfully.");
     }
 }
 
