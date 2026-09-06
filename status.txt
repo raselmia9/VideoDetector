@@ -1,7 +1,7 @@
---- DLive Real Token Capture Status ---
+--- DLive Multi-Link Real Token Capture Status ---
 Target URL: https://dlive.sx/watch.php?id=450
-Capture Time: 2026-09-06 10:51:57
+Capture Time: 2026-09-06 11:00:35
 Total Links Found: 1
 
---- Playable Streaming Links with Referer ---
-1. https://xameleon.phantemlis.top/five/secure/36adf2cad71b16f25f9f48afce0ebf13/1788702674/premium450/index.m3u8|Referer=https://hamis.romponalis.st/
+--- All Playable Streaming Links with Referer ---
+1. https://xameleon.phantemlis.top/five/secure/ad62df47fdc3b1dcfa4f3d4e8b395c8f/1788703208/premium450/index.m3u8|Referer=https://hamis.romponalis.st/
