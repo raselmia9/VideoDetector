@@ -1,4 +1,4 @@
-name: DLive Link Scraper
+name: Python DLive Scraper
 
 on:
   workflow_dispatch:
@@ -11,22 +11,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          node-version: '20'
+          python-version: '3.10'
 
       - name: Install dependencies
         run: |
-          npm install
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install chromium
+          playwright install-deps chromium
 
-      - name: Install Puppeteer Browsers
+      - name: Run Python script
         run: |
-          npx puppeteer browsers install chrome
-
-      - name: Run scraping script
-        run: |
-          node index.js
+          python main.py
 
       - name: Upload status artifact
         uses: actions/upload-artifact@v4
