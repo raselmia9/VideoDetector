@@ -6,7 +6,7 @@ def capture_all_links():
     captured_links = set()
     link_details = {}
 
-    print("Launching advanced browser with media emulation...")
+    print("Launching advanced browser...")
     with sync_playwright() as p:
         browser = p.chromium.launch(
             headless=True,
@@ -23,14 +23,13 @@ def capture_all_links():
             ]
         )
         
-        # 'autoplay' পারমিশনটি সরিয়ে শুধু বৈধ পারমিশনগুলো রাখা হয়েছে
+        # এখানে থেকে permissions অপটি সম্পূর্ণ রিমুভ করে দেওয়া হয়েছে
         context = browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             viewport={"width": 1920, "height": 1080},
             device_scale_factor=1,
             is_mobile=False,
-            has_touch=False,
-            permissions=["media"]
+            has_touch=False
         )
         
         page = context.new_page()
