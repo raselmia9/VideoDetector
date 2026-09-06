@@ -1,7 +1,9 @@
 name: DLive Link Scraper
 
 on:
-  workflow_dispatch: # ম্যানুয়ালি রান করানোর জন্য
+  workflow_dispatch: # গিটহাব অ্যাকশন্স ট্যাব থেকে ম্যানুয়ালি রান করানোর জন্য
+  schedule:
+    - cron: '0 */6 * * *' # চাইলে প্রতি ৬ ঘণ্টা পর পর অটো রান করাতে পারেন (ঐচ্ছিক)
 
 jobs:
   run-scraper:
