@@ -123,7 +123,7 @@ class MainActivity : Activity() {
             inputType = android.text.InputType.TYPE_CLASS_TEXT or
                 android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
             setBackgroundColor(Color.WHITE)
-            isSingleLine = false
+            setSingleLine(false)
             minLines = 4
             maxLines = 6
         }
