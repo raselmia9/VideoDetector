@@ -5,15 +5,12 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
-import android.view.View
-import android.view.ViewGroup
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import android.app.Activity
@@ -51,7 +48,7 @@ class MainActivity : Activity() {
         addressInput = EditText(this).apply {
             hint = "অনুমতিপ্রাপ্ত ওয়েবসাইটের URL দিন"
             textSize = 14f
-            setSingleLine(true)
+            singleLine = true
             setPadding(dp(10), 0, dp(10), 0)
             setBackgroundColor(Color.WHITE)
             inputType = android.text.InputType.TYPE_CLASS_TEXT or
@@ -82,25 +79,14 @@ class MainActivity : Activity() {
             settings.domStorageEnabled = true
             settings.mediaPlaybackRequiresUserGesture = true
             webViewClient = object : WebViewClient() {
-                override fun shouldInterceptRequest(
-                    view: WebView?,
-                    request: WebResourceRequest?
-                ): android.webkit.WebResourceResponse? {
-                    val requestedUrl = request?.url?.toString()
-                    if (captureActive && requestedUrl != null && isVideoResource(requestedUrl)) {
-                        runOnUiThread { addCapturedUrl(requestedUrl) }
-                    }
-                    return super.shouldInterceptRequest(view, request)
-                }
-
                 override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                     super.onPageStarted(view, url, favicon)
-                    if (captureActive) statusLabel.text = "পেজ লোড হচ্ছে… পাওয়া লিংক: ${foundLinks.size}"
+                    if (captureActive) statusLabel.text = "পেজ লোড হচ্ছে…"
                 }
 
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
-                    if (captureActive) statusLabel.text = "ক্যাপচার চালু · পাওয়া লিংক: ${foundLinks.size}"
+                    if (captureActive) statusLabel.text = "পেজ খোলা হয়েছে। সরাসরি ভিডিও URL দিলে ফলাফলে যোগ হবে।"
                 }
             }
         }
@@ -164,8 +150,13 @@ class MainActivity : Activity() {
         foundLinks.clear()
         resultsBox.setText("")
         captureActive = true
-        statusLabel.text = "ক্যাপচার চালু · পেজ লোড হচ্ছে…"
-        webView.loadUrl(normalized)
+        if (isVideoResource(normalized)) {
+            addCapturedUrl(normalized)
+            statusLabel.text = "সরাসরি ভিডিও URL যোগ হয়েছে।"
+        } else {
+            statusLabel.text = "পেজ খুলছি। ওয়েবপেজের ভিতরের stream request স্বয়ংক্রিয়ভাবে সংগ্রহ করা হয় না।"
+            webView.loadUrl(normalized)
+        }
     }
 
     private fun isVideoResource(rawUrl: String): Boolean {
@@ -180,7 +171,7 @@ class MainActivity : Activity() {
         if (foundLinks.add(url)) {
             val display = foundLinks.joinToString("\n\n")
             resultsBox.setText(display)
-            statusLabel.text = "ক্যাপচার চালু · পাওয়া লিংক: ${foundLinks.size}"
+            statusLabel.text = "সরাসরি ভিডিও URL যোগ হয়েছে · মোট ${foundLinks.size}"
         }
     }
 
