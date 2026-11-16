@@ -4,7 +4,10 @@ import android.annotation.SuppressLint
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
+import android.view.View
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -22,6 +25,12 @@ class MainActivity : Activity() {
     private lateinit var statusLabel: TextView
     private lateinit var webView: WebView
     private var captureActive = false
+    private var webVisible = true
+    private lateinit var webToggleButton: Button
+    private val uiHandler = Handler(Looper.getMainLooper())
+    private var captureTimeout: Runnable? = null
+    private var countdownTask: Runnable? = null
+    private var captureDeadline = 0L
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,7 +80,14 @@ class MainActivity : Activity() {
             setTextColor(Color.rgb(71, 85, 105))
             gravity = Gravity.CENTER_VERTICAL
         }
-        root.addView(statusLabel, LinearLayout.LayoutParams(-1, dp(34)))
+        root.addView(statusLabel, LinearLayout.LayoutParams(-1, dp(38)))
+
+        webToggleButton = Button(this).apply {
+            text = "ওয়েবভিউ লুকান"
+            isAllCaps = false
+            setOnClickListener { toggleWebView() }
+        }
+        root.addView(webToggleButton, LinearLayout.LayoutParams(-1, dp(44)))
 
         webView = WebView(this).apply {
             setBackgroundColor(Color.WHITE)
@@ -79,6 +95,15 @@ class MainActivity : Activity() {
             settings.domStorageEnabled = true
             settings.mediaPlaybackRequiresUserGesture = true
             webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                    val target = request?.url ?: return false
+                    val currentHost = runCatching { Uri.parse(view?.url).host }.getOrNull()
+                    val targetHost = target.host
+                    // Stop external navigation (common for ad popups/redirects) but keep the current site usable.
+                    return target.scheme !in listOf("http", "https") ||
+                        (currentHost != null && targetHost != null && !targetHost.equals(currentHost, ignoreCase = true))
+                }
+
                 override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                     super.onPageStarted(view, url, favicon)
                     if (captureActive) statusLabel.text = "পেজ লোড হচ্ছে…"
@@ -86,7 +111,7 @@ class MainActivity : Activity() {
 
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
-                    if (captureActive) statusLabel.text = "পেজ খোলা হয়েছে। সরাসরি ভিডিও URL দিলে ফলাফলে যোগ হবে।"
+                    if (captureActive) startFortySecondWindow()
                 }
             }
         }
@@ -147,16 +172,61 @@ class MainActivity : Activity() {
             addressInput.error = "সঠিক http/https URL দিন"
             return
         }
+        stopCaptureWindow()
         foundLinks.clear()
         resultsBox.setText("")
         captureActive = true
         if (isVideoResource(normalized)) {
             addCapturedUrl(normalized)
             statusLabel.text = "সরাসরি ভিডিও URL যোগ হয়েছে।"
+            startFortySecondWindow()
         } else {
-            statusLabel.text = "পেজ খুলছি। ওয়েবপেজের ভিতরের stream request স্বয়ংক্রিয়ভাবে সংগ্রহ করা হয় না।"
+            statusLabel.text = "পেজ খুলছি। লোড শেষ হলে ৪০ সেকেন্ডের সেশন শুরু হবে।"
             webView.loadUrl(normalized)
         }
+    }
+
+    private fun startFortySecondWindow() {
+        if (!captureActive) return
+        stopCaptureWindow()
+        captureDeadline = android.os.SystemClock.elapsedRealtime() + 40_000L
+        val countdown = object : Runnable {
+            override fun run() {
+                if (!captureActive) return
+                val seconds = ((captureDeadline - android.os.SystemClock.elapsedRealtime() + 999) / 1000).coerceAtLeast(0)
+                if (seconds == 0L) {
+                    finishCaptureWindow()
+                } else {
+                    statusLabel.text = "৪০ সেকেন্ডের সেশন · বাকি ${seconds} সেকেন্ড · সরাসরি ভিডিও URL ফলাফলে পেস্ট করুন"
+                    uiHandler.postDelayed(this, 1000L)
+                }
+            }
+        }
+        countdownTask = countdown
+        uiHandler.post(countdown)
+        captureTimeout = Runnable { finishCaptureWindow() }.also { uiHandler.postDelayed(it, 40_000L) }
+    }
+
+    private fun finishCaptureWindow() {
+        if (!captureActive) return
+        captureActive = false
+        stopCaptureWindow()
+        statusLabel.text = if (foundLinks.isEmpty())
+            "৪০ সেকেন্ড শেষ। পেজের ভেতরের stream request স্বয়ংক্রিয়ভাবে পড়া হয় না।"
+        else "৪০ সেকেন্ড শেষ · ${foundLinks.size}টি সরাসরি URL"
+    }
+
+    private fun stopCaptureWindow() {
+        captureTimeout?.let(uiHandler::removeCallbacks)
+        countdownTask?.let(uiHandler::removeCallbacks)
+        captureTimeout = null
+        countdownTask = null
+    }
+
+    private fun toggleWebView() {
+        webVisible = !webVisible
+        webView.visibility = if (webVisible) View.VISIBLE else View.GONE
+        webToggleButton.text = if (webVisible) "ওয়েবভিউ লুকান" else "ওয়েবভিউ দেখান"
     }
 
     private fun isVideoResource(rawUrl: String): Boolean {
@@ -194,6 +264,8 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        stopCaptureWindow()
+        uiHandler.removeCallbacksAndMessages(null)
         if (::webView.isInitialized) webView.destroy()
         super.onDestroy()
     }
