@@ -51,7 +51,7 @@ class MainActivity : Activity() {
         addressInput = EditText(this).apply {
             hint = "অনুমতিপ্রাপ্ত ওয়েবসাইটের URL দিন"
             textSize = 14f
-            singleLine = true
+            setSingleLine(true)
             setPadding(dp(10), 0, dp(10), 0)
             setBackgroundColor(Color.WHITE)
             inputType = android.text.InputType.TYPE_CLASS_TEXT or
